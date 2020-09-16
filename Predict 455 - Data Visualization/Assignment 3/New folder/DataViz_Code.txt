@@ -1,0 +1,98 @@
+# Individual Assignment 3: Visualizing Networks
+
+library(igraph)
+library(network)
+library(intergraph)
+
+# ----------------------------------------------------------
+# Read in list of links... (from-node, to-node) pairs
+# ----------------------------------------------------------
+
+all_enron_links <- read.table('enron_email_links.txt', header = FALSE)
+cat("\n\nNumber of Links on Input: ", nrow(all_enron_links))
+print(str(all_enron_links))
+
+non_zero_enron_links <- subset(all_enron_links, subset = (V1 != 0))
+non_zero_enron_links <- subset(non_zero_enron_links, subset = (V2 != 0))
+enron_links <- subset(non_zero_enron_links, subset = (V1 != V2))
+cat("\n\nNumber of Valid Links: ", nrow(enron_links))
+
+enron_net <- network(as.matrix(enron_links), matrix.type = "edgelist", directed = TRUE, multiple = TRUE)
+enron_graph <- asIgraph(enron_net)
+node_index <- as.numeric(V(enron_graph))
+V(enron_graph)$name <- node_name <- as.character(V(enron_graph))
+node_name <- as.character(node_index)
+node_reference_table <- data.frame(node_index, node_name)
+ego_1_mail <- induced.subgraph(enron_graph, neighborhood(enron_graph, order = 1, nodes = 1)[[1]])
+pdf(file = "fig_ego_1_mail_network_four_ways.pdf", width = 5.5, height = 5.5)
+par(mfrow = c(1,1))
+set.seed(9999)
+plot(ego_1_mail, vertex.size = 10, vertex.color = "yellow", vertex.label = NA, edge.arrow.size = 0.25, layout = layout.fruchterman.reingold)
+title("Fruchterman-Reingold Layout")
+set.seed(9999)
+plot(ego_1_mail, vertex.size = 10, vertex.color = "yellow", vertex.label = NA, edge.arrow.size = 0.25, layout = layout.kamada.kawai)
+title("Kamada-Kawai Layout")
+set.seed(9999)
+plot(ego_1_mail, vertex.size = 10, vertex.color = "yellow", vertex.label = NA, edge.arrow.size = 0.25, layout = layout.circle)
+title("Circle Layout")
+set.seed(9999)
+plot(ego_1_mail, vertex.size = 10, vertex.color = "yellow", vertex.label = NA, edge.arrow.size = 0.25, layout = layout.reingold.tilford)
+
+title("Reingold-Tilford Layout")
+dev.off()
+
+set.seed(9999)
+pdf(file = "fig_ego_1_mail_network.pdf", width = 8.5, height = 11)
+plot(ego_1_mail, vertex.size = 15, vertex.color = "yellow", vertex.label.cex = 0.9, edge.arrow.size = 0.25, edge.color = "black", layout = layout.kamada.kawai)
+dev.off()
+
+node_reference_table$node_degree <- degree(enron_graph)
+print(str(node_reference_table))
+
+sorted_node_reference_table <- node_reference_table[sort.list(node_reference_table$node_degree, decreasing = TRUE),]
+print(head(sorted_node_reference_table))
+print(tail(sorted_node_reference_table))
+
+K <- 50
+top_node_indices <- sorted_node_reference_table$node_index[1:K]
+print(top_node_indices)
+
+top_enron_graph <- induced.subgraph(enron_graph, top_node_indices)
+pdf(file = "fig_top_enron_graph_four_ways.pdf", width = 5.5, height = 5.5)
+par(mfrow = c(1,1))
+set.seed(9999)
+plot(top_enron_graph, vertex.size = 10, vertex.color = "yellow", vertex.label = NA, edge.arrow.size = 0.25,layout = layout.fruchterman.reingold)
+title("Fruchterman-Reingold Layout")
+set.seed(9999)
+plot(top_enron_graph, vertex.size = 10, vertex.color = "yellow", vertex.label = NA, edge.arrow.size = 0.25, layout = layout.kamada.kawai)
+title("Kamada-Kawai Layout")
+set.seed(9999)
+plot(top_enron_graph, vertex.size = 10, vertex.color = "yellow", vertex.label = NA, edge.arrow.size = 0.25, layout = layout.circle)
+title("Circle Layout")
+set.seed(9999)
+plot(top_enron_graph, vertex.size = 10, vertex.color = "yellow", vertex.label = NA, edge.arrow.size = 0.25, layout = layout.reingold.tilford)
+title("Reingold-Tilford Layout")
+dev.off()
+
+set.seed(9999)
+pdf(file = "fig_top_enron_graph.pdf", width = 8.5, height = 11)
+plot(top_enron_graph, vertex.size = 15, vertex.color = "yellow", vertex.label.cex = 0.9, edge.arrow.size = 0.25, edge.color = "darkgray", layout = layout.kamada.kawai)
+dev.off()
+
+table(sapply(cliques(top_enron_graph), length))
+two_cliques <- cliques(top_enron_graph)[sapply(cliques(top_enron_graph), length) == 13]
+print(two_cliques)
+
+core_node_indices_new <- unique(unlist(two_cliques))
+non_core_node_indices_new <- setdiff(1:K, core_node_indices_new)
+set_node_colors <- rep("white", length = K)
+set_node_colors[core_node_indices_new] <- "darkblue"
+set_label_colors <- rep("black", length = K)
+set_label_colors[core_node_indices_new] <- "white"
+set.seed(9999)
+pdf(file = "fig_top_enron_graph_with_core.pdf", width = 8.5, height = 11)
+plot(top_enron_graph, vertex.size = 15, vertex.color = set_node_colors, vertex.label.color = set_label_colors, vertex.label.cex = 0.9, edge.arrow.size = 0.25, edge.color = "darkgray", layout = layout.kamada.kawai)
+dev.off()
+
+set.seed(9999)
+plot(top_enron_graph, vertex.size = 15, vertex.color = "white", vertex.label.cex = 0.9, edge.arrow.size = 0.25, layout = layout.reingold.tilford)
