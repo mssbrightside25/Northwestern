@@ -1,0 +1,11 @@
+library(magrittr)
+library(forecast)
+library(dplyr)
+library(lubridate)
+library(forecast)
+library(ggplot2)
+library(purrr)
+library(lattice)
+library(sweep)
+library(gridExtra)
+
