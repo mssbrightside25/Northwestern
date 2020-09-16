@@ -1,0 +1,130 @@
+library(TTR)
+library(ggplot2)
+library(fpp)
+library(forecast)
+library(gridExtra)
+library(RColorBrewer)
+library(dplyr)
+library(rugarch)
+library(fGarch)
+library(quantmod)
+
+#Read in file
+BTC <- read.csv("BTC.csv")
+
+#create timeseries
+stock.ts <- ts(BTC[,6])
+
+ets.fit <- ets(stock.ts)
+arima.fit <- auto.arima(stock.ts)
+
+accuracy(ets.fit)
+accuracy(arima.fit)  
+
+ets.train_fit <- ets(btc.training)
+arima.train_fit <- auto.arima(btc.training)
+
+accuracy(forecast(ets.train_fit), btc.test)
+accuracy(forecast(arima.train_fit), btc.test) 
+
+#create training and test
+btc.training <- window(stock.ts, end=1370)
+btc.test <- window(stock.ts, start=1371)
+
+autoplot(btc.training, facets=TRUE)+ ggtitle("Bitcoin")
+
+garchfit <-garchFit(~ garch(2, 1), data = btc.training, trace = FALSE)
+garchforecast <- predict(garchfit, n.ahead=60)
+
+btc.lag = btc.training
+btc.lag <- cbind(Lag0 = btc.training, Lag1 = stats::lag(btc.training,-1), Lag2 = stats::lag(btc.training,-2), Lag3 = stats::lag(btc.training,-3)) %>% head(NROW(btc.lag))
+
+arimafit <- auto.arima(btc.training, xreg=btc.lag[,2])
+arimaforecast <- forecast(arimafit, h=60, xreg=cbind(btc.lag=c(btc.training[1369:1370],btc.test[3:60])))
+
+garchts <- ts(garchforecast[1], start=1371)
+
+autoplot(arimaforecast)+ autolayer(garchts)+ autolayer(btc.test)
+
+-----------------------------------------------------------------------------------------------------------
+
+  stock.ts <- ts(BTC$Adj.Close)
+autoplot(stock.ts,ylab="Price", xlab="Trading Day",
+         main="BTC Daily Adj. Closing Price (8/5/2013 - 8/5/2018)")
+
+# (fit <- Arima(myts, order=c(3,1,1)))
+# (fit <- Arima(myts, order=c(0,1,0)))
+# (fit <- Arima(myts, order=c(3,1,0)))
+# (fit <- Arima(myts, order=c(4,1,0)))
+# (fit <- Arima(myts, order=c(2,1,0)))
+
+## Build ARIMA model ##
+fit.arima <- auto.arima(stock.ts)
+
+## Check residuals ##
+checkresiduals(fit.arima) #not white noise, has volatility
+res.sq <- fit.arima$residuals^2
+p1 <- autoplot(res.sq)
+p2 <- ggAcf(res.sq)
+p3 <- ggPacf(res.sq)
+grid.arrange(p1,p2,p3)
+
+## Fit GARCH model ##
+gspec <- ugarchspec()
+gfit <- ugarchfit(gspec,stock.ts)
+coef(gfit)
+
+plot(gfit@fit$residuals,type='l',ylab="GARCH")
+plot(fit.arima$residuals,ylab="ARIMA",xlab="Index")
+
+par(mfrow=c(3,1))
+plot(gfit,which=10)
+plot(gfit,which=9)
+plot(gfit,which=8)
+par(mfrow=c(1,1))
+
+
+## Compare forecasts ##
+fc.arima <- forecast(fit.arima,h=30)
+fc.garch <- ugarchforecast(gfit,n.ahead=30)
+fcast.garch <- fc.garch@forecast$seriesFor
+fc.ts <- ts(fcast.garch,start=1370)
+plot(fc.garch,which=1)
+
+mini <- window(stock.ts,start=1371)
+autoplot(mini,series="Data")+
+  autolayer(fc.arima,series="ARIMA(0,1,0)",PI=FALSE)+
+  autolayer(fc.ts,series="GARCH(1,1)")+
+  xlab("Trading Days")+ylab("Price")+
+  ggtitle("Forecasted BTC Adj. Closing Price (8/5/2018 - 8/5/2018)") 
+  
+# head(BTC)
+# 
+# #Change format of Date & order by Date
+# BTC$Date <- as.Date(BTC$Date, format="%m/%d/%Y")
+# BTC_stock <- BTC[order(BTC$Date),]
+# 
+# #Define ts for Adj. Close Column (Coln #6)
+# stock.ts <- ts(BTC_stock[,6], start=1)
+# 
+# #Visualize
+# autoplot(stock.ts, facets=TRUE) + ggtitle("Daily Adjusted Closing Stock Prices for BTC") +
+#   xlab("Number of Days (8/04/13 - 8/05/18)")
+# 
+# #Define/specify a GARCH object, standard GARCH(1,1)
+# garchObj <- ugarchspec()
+# 
+# #Model Estimation w Standard GARCH(1,1)
+# garchObj.fit <- ugarchfit(spec=garchObj, data=stock.ts)
+# summary(garchObj.fit)
+# 
+# #Practice Extracting conditional variances & residuals
+# garchObj.cv <- garchObj.fit@fit$var
+# garchObj.res2 <- (garchObj.fit@fit$residuals)^2
+# 
+# #plot squared residuals and conditional vars
+# plot(garchObj.res2, type="l")
+# lines(garchObj.cv, col="green")
+# 
+# #Produce forecasts for next 59 days
+# BTC_forecast <- ugarchforecast(garchObj.fit, n.ahead=59)
