@@ -1,0 +1,85 @@
+library(sp)  
+library(maptools)  
+library(ggplot2)  
+library(colorspace)  
+library(maps)
+library(mapproj)
+library(Cairo)
+
+gpclibPermit()
+
+theme_clean <- function(base_size = 12) {
+    require(grid)
+    theme_grey(base_size) %+replace%
+    theme(
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    panel.background = element_blank(),
+    panel.grid = element_blank(),
+    axis.ticks.length = unit(0, "cm"),
+    axis.ticks.margin = unit(0, "cm"),
+    panel.margin = unit(0, "lines"),
+    plot.margin = unit(c(0,0,0,0), "lines"),
+    complete = TRUE)
+    }
+
+load("USA_adm1.RData")
+
+gadm.data.frame <- fortify(gadm)
+gadm.data.frame$state <- factor(gadm.data.frame$id, levels = 1:length(gadm$NAME_1), labels = gadm$NAME_1)
+gadm.data.frame$state <- as.character(gadm.data.frame$state)
+
+my.data.frame <- read.csv("data_sat_scores_2013.csv", header = TRUE)
+
+my.data.frame$State <- as.character(my.data.frame$State)
+ if(!setequal(unique(my.data.frame$State), unique(gadm.data.frame$state))) {
++     cat("\n\nState names from input data:\n\n")
++     print(sort(unique(my.data.frame$State)))
++     cat("\n\nState names from GIS database:\n\n")
++     print(sort(unique(gadm.data.frame$state)))
++     cat("\n\n")
++     stop("\n\nExecution terminated")  
++ }
+
+combined.data.frame <- merge(gadm.data.frame, my.data.frame, 
++                              by.x = "state",  by.y = "State")
+
+us.data.frame <- subset(combined.data.frame,
++                         subset = ((long >= -124.7625) & (long <= -66.9326) &
++                                       (lat >= 24.5210) & (lat <= 49.3845)))
+
+selected.us.data.frame <- subset(us.data.frame, subset = (!hole))
+
+us.map.object <- ggplot(data = selected.us.data.frame, 
++                         aes(map_id = id, x = long, y = lat, fill = SAT)) + 
++     geom_map(map = selected.us.data.frame, colour = "black") + 
++     coord_map("albers", lat0 = 24.5210, lat1 = 49.3845) + 
++     scale_fill_gradient2(low = hex(HLS(12,0.5,0.9)), 
++                          mid = "gray90", 
++                          high = hex(HLS(253,0.5,0.9)), 
++                          midpoint = median(my.data.frame$SAT))
+
+print(us.map.object)
+
+us.map.object <- ggplot(data = selected.us.data.frame, 
++                         aes(map_id = id, x = long, y = lat, fill = SAT)) + 
++     geom_map(map = selected.us.data.frame, colour = "black") + 
++     coord_map("albers", lat0 = 24.5210, lat1 = 49.3845) + 
++     scale_fill_gradient2(low = hex(HLS(12,0.5,0.9)), 
++                          mid = "gray90", 
++                          high = hex(HLS(253,0.5,0.9)), 
++                          midpoint = median(my.data.frame$SAT)) +
++     theme_clean()
+
+print(us.map.object)
+pdf(file = "plot_map_sat_scores_by_state.pdf", width = 11, height = 8.5)
+print(us.map.object)
+dev.off()
+
+svg(file = "plot_map_sat_scores_by_state.svg", width = 11, height = 8.5)
+print(us.map.object)
+dev.off()
+
+CairoPNG(file = "plot_map_sat_scores_by_state.png", width = 792, height = 612)
+print(us.map.object)
+dev.off()
