@@ -1,0 +1,42 @@
+library(TTR)
+library(ggplot2)
+library(fpp)
+library(forecast)
+library(gridExtra)
+library(RColorBrewer)
+library(dplyr)
+
+BTC <- read.csv("BTC.csv")
+
+BTC$Date <- as.Date(BTC$Date, format="%m/%d/%Y")
+BTC <- BTC[order(BTC$Date),]
+
+numrow <- nrow(BTC) 
+BTC$lagvol <- 0
+BTC[2:1827,]$lagvol <- BTC[1:1826,]$Volume
+
+BTC <- select(BTC, -Open, -High, - Low, -Close, -Volume) #Retains Date, Adj.Close, lagvol columns
+
+BTC.ts <- ts(BTC[,2], start=1)
+
+autoplot(BTC.ts, facets=TRUE) + ggtitle("Daily Adjusted Closing Stock Prices for BTC") +
+  xlab("Number of Days (Starting at 8/05/13 [Day 1] - 8/05/18 [Day 1827])")
+
+train <- window(BTC.ts, end=1370)
+test <- window(BTC.ts, start=1371)
+
+ndiffs(train) 
+nsdiffs(train) 
+
+train.model <- auto.arima(train[2:1370], xreg=BTC$lagvol[2:1370], seasonal=FALSE)
+summary(train.model)
+checkresiduals(train.model)
+
+forecast <- forecast(train.model, h=457, xreg=BTC$lagvol[1371:1827])
+model.acc <- accuracy(forecast, test)
+model.acc
+
+autoplot(BTC.ts, facets=TRUE, series="Data") + 
+  autolayer(forecast, series="test", PI=FALSE) +
+  ggtitle("Daily Adjusted Closing Stock Prices for BTC") +
+  xlab("Number of Days (Starting at 8/05/13 [Day 1] - 8/05/18 [Day 1827])")
